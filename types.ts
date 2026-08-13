@@ -35,8 +35,18 @@ export interface AttendanceRecord {
   present: boolean;
 }
 
+export interface TeacherAccount {
+  id: string;
+  name: string;
+  email: string;
+  schoolName?: string;
+  role?: string;
+  createdAt: string;
+}
+
 export interface Student {
   id: string;
+  teacherId?: string;
   name: string;
   classGroup: string;
   email: string;   
@@ -100,6 +110,7 @@ export interface GeneratedExerciseResponse {
 
 export interface ArchivedExam extends GeneratedQuizResponse {
   id: string;
+  teacherId?: string;
   createdAt: string;
   courseUnit?: string;
   teacherName?: string;
@@ -136,6 +147,7 @@ export interface SlideDeck {
 
 export interface ArchivedSlideDeck extends SlideDeck {
   id: string;
+  teacherId?: string;
   createdAt: string;
   curricularUnit?: string;
 }
@@ -143,6 +155,7 @@ export interface ArchivedSlideDeck extends SlideDeck {
 // Activity Hub Types
 export interface Activity {
   id: string;
+  teacherId?: string;
   title: string;
   description: string;
   className: string;
@@ -156,6 +169,7 @@ export interface Activity {
 
 export interface Submission {
   id: string;
+  teacherId?: string;
   activityId: string;
   studentName: string;
   fileName: string;

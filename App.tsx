@@ -16,7 +16,7 @@ import { ActivitiesView } from './components/views/ActivitiesView';
 import { TeachersChatView } from './components/views/TeachersChatView';
 import { WhatsAppView } from './components/views/WhatsAppView';
 import { LoginView } from './components/views/LoginView';
-import { ViewState, Student, ArchivedExam, Activity, Submission, ArchivedSlideDeck } from './types';
+import { ViewState, Student, ArchivedExam, Activity, Submission, ArchivedSlideDeck, TeacherAccount } from './types';
 
 // Storage Keys - DEFINITIVE STABLE KEYS V9 (Updated for 4 Assessments)
 const STORAGE_KEY_STUDENTS = 'professores_conectados_students_v9_stable'; 
@@ -26,6 +26,7 @@ const STORAGE_KEY_ACTIVITIES = 'professores_conectados_activities_v9_stable';
 const STORAGE_KEY_SUBMISSIONS = 'professores_conectados_submissions_v9_stable';
 const STORAGE_KEY_AUTH = 'professores_conectados_auth_session';
 const STORAGE_KEY_LOGO = 'professores_conectados_logo_url';
+const STORAGE_KEY_CURRENT_TEACHER = 'professores_conectados_current_teacher';
 
 // CONFIG: Admin Password
 const ADMIN_PASSWORD = "admin123"; 
@@ -90,6 +91,19 @@ function App() {
         return sessionStorage.getItem(STORAGE_KEY_AUTH) === 'true';
     }
     return false;
+  });
+
+  // --- TEACHER ACCOUNT STATE ---
+  const [currentTeacher, setCurrentTeacher] = useState<TeacherAccount | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_CURRENT_TEACHER);
+        return saved ? JSON.parse(saved) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   });
 
   // --- VIEW STATE ---
@@ -607,21 +621,42 @@ function App() {
       if (password === ADMIN_PASSWORD) {
           setIsAuthenticated(true);
           sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
+          const adminTeacher: TeacherAccount = {
+            id: 'prof_admin',
+            name: 'Administrador Mestre',
+            email: 'admin@escola.com',
+            schoolName: 'Gestão Escolar Mestre',
+            createdAt: new Date().toISOString()
+          };
+          setCurrentTeacher(adminTeacher);
+          localStorage.setItem(STORAGE_KEY_CURRENT_TEACHER, JSON.stringify(adminTeacher));
           return true;
       }
       return false;
   };
 
+  const handleTeacherLogin = (teacher: TeacherAccount) => {
+      setCurrentTeacher(teacher);
+      setIsAuthenticated(true);
+      sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
+      localStorage.setItem(STORAGE_KEY_CURRENT_TEACHER, JSON.stringify(teacher));
+  };
+
   const handleLogout = () => {
       setIsAuthenticated(false);
+      setCurrentTeacher(null);
       sessionStorage.removeItem(STORAGE_KEY_AUTH);
+      localStorage.removeItem(STORAGE_KEY_CURRENT_TEACHER);
       setCurrentView(ViewState.DASHBOARD); 
   };
 
   // --- DATA HANDLERS ---
   const handleAddStudent = async (newStudent: Student) => {
     // Check if the student already has courseUnits initialized. If not, auto-inherit from classmates of the same class Group!
-    let initializedStudent = { ...newStudent };
+    let initializedStudent: Student = { 
+      ...newStudent,
+      teacherId: newStudent.teacherId || currentTeacher?.id
+    };
     if (!initializedStudent.courseUnits || initializedStudent.courseUnits.length === 0) {
       const classmates = students.filter(s => s.classGroup.trim().toLowerCase() === initializedStudent.classGroup.trim().toLowerCase());
       if (classmates.length > 0) {
@@ -701,10 +736,41 @@ function App() {
          console.error(e);
       }
   };
-  
-  const handleArchiveExam = (exam: ArchivedExam) => setArchivedExams(prev => [exam, ...prev]);
 
-  const handleArchiveSlideDeck = (deck: ArchivedSlideDeck) => setArchivedSlides(prev => [deck, ...prev]);
+  const handleDeleteClassGroup = async (className: string, deleteStudents: boolean = true) => {
+      if (!className) return;
+      
+      if (deleteStudents) {
+        setStudents(prev => prev.filter(s => !s.classGroup || s.classGroup.trim().toLowerCase() !== className.trim().toLowerCase()));
+      } else {
+        setStudents(prev => prev.map(s => {
+          if (s.classGroup && s.classGroup.trim().toLowerCase() === className.trim().toLowerCase()) {
+            return { ...s, classGroup: 'Sem Turma' };
+          }
+          return s;
+        }));
+      }
+
+      try {
+        await fetch('/api/classes/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ className, deleteStudents })
+        });
+      } catch (e) {
+        console.error("Erro ao excluir turma no servidor", e);
+      }
+  };
+  
+  const handleArchiveExam = (exam: ArchivedExam) => {
+    const examWithTeacher = { ...exam, teacherId: exam.teacherId || currentTeacher?.id };
+    setArchivedExams(prev => [examWithTeacher, ...prev]);
+  };
+
+  const handleArchiveSlideDeck = (deck: ArchivedSlideDeck) => {
+    const deckWithTeacher = { ...deck, teacherId: deck.teacherId || currentTeacher?.id };
+    setArchivedSlides(prev => [deckWithTeacher, ...prev]);
+  };
   
   const handleViewExam = (exam: ArchivedExam) => { 
       setSelectedExam(exam); 
@@ -717,12 +783,13 @@ function App() {
   };
   
   const handleAddActivity = async (activity: Activity) => {
-    setActivities(prev => [activity, ...prev]);
+    const activityWithTeacher = { ...activity, teacherId: activity.teacherId || currentTeacher?.id };
+    setActivities(prev => [activityWithTeacher, ...prev]);
     try {
       await fetch('/api/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(activity)
+        body: JSON.stringify(activityWithTeacher)
       });
     } catch (e) {
       console.error(e);
@@ -743,12 +810,13 @@ function App() {
   };
   
   const handleAddSubmission = async (submission: Submission) => {
-    setSubmissions(prev => [submission, ...prev]);
+    const subWithTeacher = { ...submission, teacherId: submission.teacherId || currentTeacher?.id };
+    setSubmissions(prev => [subWithTeacher, ...prev]);
     try {
        await fetch('/api/submissions', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify(submission)
+         body: JSON.stringify(subWithTeacher)
        });
     } catch (e) {
        console.error(e);
@@ -784,6 +852,7 @@ function App() {
       return (
         <LoginView 
             onLogin={handleLogin} 
+            onTeacherLogin={handleTeacherLogin}
             onGoToStudentPortal={() => setCurrentView(ViewState.STUDENT_PORTAL)}
             logoUrl={logoUrl}
         />
@@ -800,6 +869,7 @@ function App() {
           archivedExams={archivedExams} 
           archivedSlides={archivedSlides}
           onAddStudent={handleAddStudent} 
+          onDeleteClassGroup={handleDeleteClassGroup}
           onViewExam={handleViewExam}
           onViewSlide={handleViewSlide}
           customRegistrationLink={customRegistrationLink}
@@ -812,7 +882,7 @@ function App() {
       case ViewState.SLIDES: return <SlideGeneratorView archivedDecks={archivedSlides} onArchive={handleArchiveSlideDeck} initialDeck={selectedSlide} logoUrl={logoUrl} />;
       case ViewState.EXERCISE_GENERATOR: return <ExerciseGeneratorView logoUrl={logoUrl} />;
       case ViewState.EXAMS: return <ExamCreatorView onArchiveExam={handleArchiveExam} initialExam={selectedExam} logoUrl={logoUrl} />;
-      case ViewState.GRADES: return <GradebookView students={students} onUpdateStudent={handleUpdateStudent} onBulkUpdateStudents={handleBulkUpdateStudents} onAddStudent={handleAddStudent} onDeleteStudent={handleDeleteStudent} />;
+      case ViewState.GRADES: return <GradebookView students={students} onUpdateStudent={handleUpdateStudent} onBulkUpdateStudents={handleBulkUpdateStudents} onAddStudent={handleAddStudent} onDeleteStudent={handleDeleteStudent} onDeleteClassGroup={handleDeleteClassGroup} />;
       case ViewState.GOOGLE_FORMS: return (
         <GoogleFormsView 
           customRegistrationLink={customRegistrationLink}
@@ -828,6 +898,7 @@ function App() {
           archivedExams={archivedExams} 
           archivedSlides={archivedSlides} 
           onAddStudent={handleAddStudent} 
+          onDeleteClassGroup={handleDeleteClassGroup}
           onViewExam={handleViewExam} 
           onViewSlide={handleViewSlide}
           customRegistrationLink={customRegistrationLink}
@@ -845,6 +916,7 @@ function App() {
         onLogout={handleLogout} 
         logoUrl={logoUrl}
         setLogoUrl={setLogoUrl}
+        currentTeacher={currentTeacher}
       />
       
       <main className="flex-1 ml-64 p-8 overflow-y-auto max-w-[1920px] transition-all duration-300">

@@ -10,6 +10,7 @@ interface GradebookProps {
   onBulkUpdateStudents: (students: Student[]) => void;
   onAddStudent: (student: Student) => void;
   onDeleteStudent: (studentId: string) => void;
+  onDeleteClassGroup?: (className: string, deleteStudents: boolean) => void;
 }
 
 const UNIT_COLORS = [
@@ -31,10 +32,16 @@ const getUnitStyle = (unitName: string) => {
   return UNIT_COLORS[index];
 };
 
-export const GradebookView: React.FC<GradebookProps> = ({ students, onUpdateStudent, onBulkUpdateStudents, onAddStudent, onDeleteStudent }) => {
+export const GradebookView: React.FC<GradebookProps> = ({ students, onUpdateStudent, onBulkUpdateStudents, onAddStudent, onDeleteStudent, onDeleteClassGroup }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedStudentForReport, setSelectedStudentForReport] = useState<Student | null>(null);
+
+  // Delete Class Group State
+  const [showDeleteClassModal, setShowDeleteClassModal] = useState(false);
+  const [classToDelete, setClassToDelete] = useState<string | null>(null);
+  const [deleteClassOption, setDeleteClassOption] = useState<'delete_all' | 'keep_students'>('delete_all');
+  const [showManageClassesModal, setShowManageClassesModal] = useState(false);
   
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -95,6 +102,31 @@ export const GradebookView: React.FC<GradebookProps> = ({ students, onUpdateStud
     const classes = new Set(students.map(s => s.classGroup));
     return Array.from(classes).sort();
   }, [students]);
+
+  const handleConfirmDeleteClass = () => {
+    if (!classToDelete) return;
+    const isDeleteAll = deleteClassOption === 'delete_all';
+
+    if (onDeleteClassGroup) {
+      onDeleteClassGroup(classToDelete, isDeleteAll);
+    } else {
+      if (isDeleteAll) {
+        const studentsInClass = students.filter(s => s.classGroup.trim().toLowerCase() === classToDelete.trim().toLowerCase());
+        studentsInClass.forEach(s => onDeleteStudent(s.id));
+      } else {
+        const updated = students
+          .filter(s => s.classGroup.trim().toLowerCase() === classToDelete.trim().toLowerCase())
+          .map(s => ({ ...s, classGroup: 'Sem Turma' }));
+        onBulkUpdateStudents(updated);
+      }
+    }
+
+    if (selectedClass === classToDelete) {
+      setSelectedClass('all');
+    }
+    setShowDeleteClassModal(false);
+    setClassToDelete(null);
+  };
 
   // Filter students based on search AND selected class
   const filteredStudents = useMemo(() => {
@@ -490,6 +522,33 @@ export const GradebookView: React.FC<GradebookProps> = ({ students, onUpdateStud
                   >
                      <Layers size={16} />
                      <span className="hidden sm:inline">Add à Turma</span>
+                  </button>
+              )}
+
+              {/* Delete Class Button - Only visible when a specific class is selected */}
+              {selectedClass !== 'all' && (
+                  <button 
+                    onClick={() => {
+                      setClassToDelete(selectedClass);
+                      setShowDeleteClassModal(true);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg transition-colors shadow-sm text-sm font-bold whitespace-nowrap"
+                    title={`Excluir a turma ${selectedClass}`}
+                  >
+                     <Trash2 size={16} />
+                     <span className="hidden sm:inline">Excluir Turma</span>
+                  </button>
+              )}
+
+              {/* Manage Classes Button - Visible when 'all' is selected */}
+              {selectedClass === 'all' && uniqueClasses.length > 0 && (
+                  <button 
+                    onClick={() => setShowManageClassesModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors shadow-sm text-sm font-bold whitespace-nowrap"
+                    title="Gerenciar e Excluir Turmas"
+                  >
+                     <Users size={16} />
+                     <span className="hidden sm:inline">Gerenciar Turmas</span>
                   </button>
               )}
           </div>
@@ -1415,6 +1474,181 @@ export const GradebookView: React.FC<GradebookProps> = ({ students, onUpdateStud
                    Fechar
                  </button>
              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Excluir Turma */}
+      {showDeleteClassModal && classToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg animate-fade-in overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-red-50/50">
+              <h3 className="font-bold text-xl text-red-800 flex items-center gap-2">
+                <Trash2 size={22} className="text-red-600"/>
+                Excluir Turma: {classToDelete}
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowDeleteClassModal(false);
+                  setClassToDelete(null);
+                }} 
+                className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-500 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+                <AlertTriangle size={22} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-amber-900 text-sm">Atenção! Ação permanente</h4>
+                  <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                    A turma <strong className="font-bold">{classToDelete}</strong> possui{' '}
+                    <strong className="font-bold">
+                      {students.filter(s => s.classGroup.trim().toLowerCase() === classToDelete.trim().toLowerCase()).length}
+                    </strong>{' '}
+                    aluno(s) cadastrado(s). Escolha como deseja prosseguir com a exclusão.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Opções de Exclusão</label>
+                
+                <div 
+                  onClick={() => setDeleteClassOption('delete_all')}
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
+                    deleteClassOption === 'delete_all' 
+                      ? 'border-red-500 bg-red-50/30 ring-2 ring-red-100' 
+                      : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <input 
+                    type="radio" 
+                    name="deleteOption" 
+                    checked={deleteClassOption === 'delete_all'} 
+                    onChange={() => setDeleteClassOption('delete_all')}
+                    className="mt-1 text-red-600 focus:ring-red-500"
+                  />
+                  <div>
+                    <span className="font-bold text-gray-800 text-sm block">Excluir Turma e TODOS os Alunos</span>
+                    <span className="text-xs text-gray-500 leading-relaxed block mt-0.5">
+                      Remove a turma e apaga permanentemente todos os alunos cadastrados nela, juntamente com suas notas e histórico.
+                    </span>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => setDeleteClassOption('keep_students')}
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
+                    deleteClassOption === 'keep_students' 
+                      ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-100' 
+                      : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <input 
+                    type="radio" 
+                    name="deleteOption" 
+                    checked={deleteClassOption === 'keep_students'} 
+                    onChange={() => setDeleteClassOption('keep_students')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="font-bold text-gray-800 text-sm block">Excluir Turma e Manter Alunos ("Sem Turma")</span>
+                    <span className="text-xs text-gray-500 leading-relaxed block mt-0.5">
+                      A turma será excluída, mas os alunos serão preservados no sistema e movidos para a categoria "Sem Turma".
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteClassModal(false);
+                    setClassToDelete(null);
+                  }} 
+                  className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleConfirmDeleteClass} 
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md transition-colors flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  Confirmar Exclusão
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Gerenciar Turmas */}
+      {showManageClassesModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg animate-fade-in overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2">
+                <Users size={22} className="text-indigo-600"/>
+                Gerenciar Turmas Cadastradas
+              </h3>
+              <button 
+                onClick={() => setShowManageClassesModal(false)} 
+                className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-500 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+              {uniqueClasses.length === 0 ? (
+                <p className="text-center text-gray-500 text-sm py-6">Nenhuma turma cadastrada até o momento.</p>
+              ) : (
+                uniqueClasses.map(clsName => {
+                  const count = students.filter(s => s.classGroup.trim().toLowerCase() === clsName.trim().toLowerCase()).length;
+                  return (
+                    <div key={clsName} className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between gap-4 hover:border-indigo-200 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-indigo-100 text-indigo-700 rounded-xl">
+                          <Users size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-800 text-base">{clsName}</h4>
+                          <span className="text-xs text-gray-500 font-medium">{count} aluno(s) cadastrado(s)</span>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          setClassToDelete(clsName);
+                          setShowManageClassesModal(false);
+                          setShowDeleteClassModal(true);
+                        }}
+                        className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                        title={`Excluir turma ${clsName}`}
+                      >
+                        <Trash2 size={14} />
+                        Excluir Turma
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setShowManageClassesModal(false)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl text-sm font-semibold transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

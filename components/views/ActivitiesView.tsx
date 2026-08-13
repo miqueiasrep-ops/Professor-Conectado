@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { FolderUp, UploadCloud, File, Download, CheckCircle, Clock, Trash2, Plus, Paperclip, User, FileText, Mail, X, Search, Send, AlertTriangle, Save, Copy } from 'lucide-react';
 import { Activity, Submission, Student } from '../../types';
+import { formatDateBR } from '../utils/dateUtils';
 
 interface ActivitiesViewProps {
   activities: Activity[];
@@ -149,7 +150,7 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({ activities, subm
     
     let bodyText = `Olá ${student.name},\n\nUma nova atividade foi postada para você.\n\n`;
     bodyText += `Título: ${selectedActivityForShare.title}\n`;
-    bodyText += `Entrega: ${selectedActivityForShare.deadline ? new Date(selectedActivityForShare.deadline).toLocaleDateString() : 'Sem data'}\n\n`;
+    bodyText += `Entrega: ${formatDateBR(selectedActivityForShare.deadline)}\n\n`;
     bodyText += `Descrição:\n${selectedActivityForShare.description}\n\n`;
     
     if (selectedActivityForShare.fileName) {
@@ -172,7 +173,7 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({ activities, subm
     let text = `Assunto: Nova Atividade: ${selectedActivityForShare.title}\n\n`;
     text += `Olá Aluno,\n\nUma nova atividade foi postada.\n\n`;
     text += `Título: ${selectedActivityForShare.title}\n`;
-    text += `Entrega: ${selectedActivityForShare.deadline ? new Date(selectedActivityForShare.deadline).toLocaleDateString() : 'Sem data'}\n`;
+    text += `Entrega: ${formatDateBR(selectedActivityForShare.deadline)}\n`;
     text += `Descrição: ${selectedActivityForShare.description}\n\n`;
     
     if (selectedActivityForShare.fileName) {
@@ -321,7 +322,7 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({ activities, subm
                                     <span className="bg-white px-2 py-0.5 rounded border border-gray-200">{activity.className}</span>
                                     {activity.deadline && (
                                        <span className="flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-100">
-                                          <Clock size={10} /> Entrega: {new Date(activity.deadline).toLocaleDateString('pt-BR')}
+                                          <Clock size={10} /> Entrega: {formatDateBR(activity.deadline)}
                                        </span>
                                     )}
                                  </div>

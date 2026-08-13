@@ -387,6 +387,62 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.post("/api/classes/delete", async (req, res) => {
+    const { className, deleteStudents = true } = req.body;
+    if (!className) {
+      return res.status(400).json({ error: "Nome da turma não fornecido" });
+    }
+
+    if (deleteStudents) {
+      const studentsToDelete = db.students.filter(
+        s => s && s.classGroup && s.classGroup.trim().toLowerCase() === className.trim().toLowerCase()
+      );
+      
+      db.students = db.students.filter(
+        s => !s || !s.classGroup || s.classGroup.trim().toLowerCase() !== className.trim().toLowerCase()
+      );
+
+      if (dbFirestore) {
+        try {
+          for (const st of studentsToDelete) {
+            if (st && st.id) {
+              await deleteDoc(doc(dbFirestore, "students", st.id));
+            }
+          }
+          console.log(`Deleted ${studentsToDelete.length} students from Firestore for class ${className}.`);
+        } catch (e) {
+          console.error(`Error deleting class students from Firestore:`, e);
+        }
+      }
+    } else {
+      const updatedStudents: any[] = [];
+      db.students = db.students.map(s => {
+        if (s && s.classGroup && s.classGroup.trim().toLowerCase() === className.trim().toLowerCase()) {
+          const updated = { ...s, classGroup: 'Sem Turma' };
+          updatedStudents.push(updated);
+          return updated;
+        }
+        return s;
+      });
+
+      if (dbFirestore) {
+        try {
+          for (const st of updatedStudents) {
+            if (st && st.id) {
+              await setDoc(doc(dbFirestore, "students", st.id), cleanObject(st));
+            }
+          }
+          console.log(`Reassigned ${updatedStudents.length} students to 'Sem Turma' in Firestore.`);
+        } catch (e) {
+          console.error(`Error updating students in Firestore:`, e);
+        }
+      }
+    }
+
+    await saveDb();
+    res.json({ success: true, students: db.students });
+  });
+
   app.post("/api/students/report-ai", async (req, res) => {
     try {
       const { student } = req.body;

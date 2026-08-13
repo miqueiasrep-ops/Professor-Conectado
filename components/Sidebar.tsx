@@ -1,6 +1,6 @@
 import React from 'react';
-import { ViewState } from '../types';
-import { LayoutDashboard, Search, FileText, GraduationCap, LogOut, BookOpenCheck, Presentation, Sparkles, UserPlus, ListTodo, FolderUp, FileQuestion, MessageCircle, MessageSquare } from 'lucide-react';
+import { ViewState, TeacherAccount } from '../types';
+import { LayoutDashboard, Search, FileText, GraduationCap, LogOut, BookOpenCheck, Presentation, Sparkles, UserPlus, ListTodo, FolderUp, FileQuestion, MessageCircle, MessageSquare, UserCheck } from 'lucide-react';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -8,9 +8,10 @@ interface SidebarProps {
   onLogout: () => void;
   logoUrl: string;
   setLogoUrl: (url: string) => void;
+  currentTeacher?: TeacherAccount | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout, logoUrl, setLogoUrl }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout, logoUrl, setLogoUrl, currentTeacher }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout
     <>
       <aside className="w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white h-screen flex flex-col fixed left-0 top-0 z-20 shadow-2xl border-r border-slate-700/50">
         {/* Logo Area */}
-        <div className="p-8 pb-8 flex flex-col gap-2 flex-shrink-0">
+        <div className="p-6 pb-6 flex flex-col gap-2 flex-shrink-0">
           <div className="flex items-center gap-3 group relative">
             <div 
               onClick={() => fileInputRef.current?.click()}
@@ -64,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout
                <h1 className="text-lg font-bold tracking-tight text-white leading-tight">Professor<br/><span className="text-indigo-400">Conectado</span></h1>
                <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-[10px] text-slate-500 hover:text-indigo-400 uppercase tracking-widest font-bold flex items-center gap-1 mt-1 transition-colors"
+                  className="text-[10px] text-slate-500 hover:text-indigo-400 uppercase tracking-widest font-bold flex items-center gap-1 mt-0.5 transition-colors"
                 >
                   Alterar Logo
                 </button>
@@ -84,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout
               <button
                 key={item.id}
                 onClick={() => setView(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 group relative ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
                     : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
@@ -105,7 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout
           
           <button
             onClick={() => setView(ViewState.STUDENT_PORTAL)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-emerald-400 transition-all duration-300 group"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-emerald-400 transition-all duration-300 group"
           >
             <UserPlus size={20} className="text-slate-500 group-hover:text-emerald-400 transition-colors" />
             <span className="font-medium tracking-wide text-sm">Modo Aluno (Cadastro)</span>
@@ -113,17 +114,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout
 
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 m-4 mt-auto rounded-2xl bg-slate-800/50 border border-slate-700/50 flex-shrink-0">
+        {/* Active Teacher Profile Footer */}
+        <div className="p-4 m-3 mt-auto rounded-2xl bg-slate-800/80 border border-slate-700/60 flex-shrink-0 space-y-3">
+          {currentTeacher ? (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-indigo-300 font-bold flex-shrink-0">
+                <UserCheck size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-white truncate" title={currentTeacher.name}>
+                  {currentTeacher.name}
+                </h4>
+                <p className="text-[10px] text-slate-400 truncate" title={currentTeacher.schoolName || currentTeacher.email}>
+                  {currentTeacher.schoolName || currentTeacher.email}
+                </p>
+                <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[9px] font-bold">
+                  Ambiente Privado
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-400">
+              Professores Conectados
+            </div>
+          )}
+
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-2 py-2 text-slate-400 hover:text-red-400 transition-colors rounded-lg group"
+            className="w-full flex items-center justify-between px-3 py-2 bg-slate-900/60 hover:bg-red-950/40 text-slate-300 hover:text-red-300 border border-slate-700/50 hover:border-red-900/50 transition-all rounded-xl text-xs font-semibold group"
           >
-            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-medium">Sair do Sistema</span>
+            <span>Sair da Conta</span>
+            <LogOut size={15} className="group-hover:-translate-x-0.5 transition-transform text-slate-400 group-hover:text-red-400" />
           </button>
-          <div className="mt-3 pt-3 border-t border-slate-700/50 text-center">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Versão 2.5.0</p>
+
+          <div className="pt-1 text-center">
+              <p className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold">Acesso Independente v2.5</p>
           </div>
         </div>
       </aside>

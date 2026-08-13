@@ -11,6 +11,7 @@ interface DashboardProps {
   archivedExams: ArchivedExam[];
   archivedSlides?: ArchivedSlideDeck[]; // Added prop
   onAddStudent: (student: Student) => void;
+  onDeleteClassGroup?: (className: string, deleteStudents: boolean) => void;
   onViewExam?: (exam: ArchivedExam) => void;
   onViewSlide?: (deck: ArchivedSlideDeck) => void; // Added prop
   customRegistrationLink?: string;
